@@ -32,7 +32,8 @@ func runSync() error {
 	}
 	cfg, err := readConfig()
 	if err != nil {
-		return err
+		fmt.Printf("Warning: unable to read Tracemesh configuration; active task cleared: %v\n", err)
+		return clearActiveTask()
 	}
 
 	configured := cfg.Branches[branch]
@@ -56,17 +57,25 @@ func runSync() error {
 		}
 	}
 
-	activePath := filepath.Join(".tracemesh", "active.md")
-	if err := os.Remove(activePath); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("remove %s: %w", activePath, err)
+	if err := clearActiveTask(); err != nil {
+		return err
 	}
 	if len(valid) == 0 {
 		return nil
 	}
 
+	activePath := filepath.Join(".tracemesh", "active.md")
 	target := filepath.ToSlash(filepath.Join("tasks", valid[len(valid)-1]+".md"))
 	if err := os.Symlink(target, activePath); err != nil {
 		return fmt.Errorf("create %s symlink: %w", activePath, err)
+	}
+	return nil
+}
+
+func clearActiveTask() error {
+	activePath := filepath.Join(".tracemesh", "active.md")
+	if err := os.Remove(activePath); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("remove %s: %w", activePath, err)
 	}
 	return nil
 }
