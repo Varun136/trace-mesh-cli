@@ -124,6 +124,17 @@ go test ./test -run TestCommandsRequireValidContext -v
 
 **Expected:** commands requiring initialized Tracemesh state fail before initialization, and commands requiring an active task fail when no active task exists.
 
+### Additional regression tests
+
+- `TestPromptWritesProtocolToStdout` verifies that `tm-prompt` produces no stderr output and can be redirected.
+- `TestInitSupportsGitWorktrees` verifies initialization when `.git` is a file rather than a directory.
+- `TestAddRepairsDeletedConfiguredAgentFile` verifies stale agent configuration is repaired.
+- `TestInvalidInputsAndDetachedHeadAreRejected` covers blank titles, blank notes, and detached `HEAD`.
+- `TestMalformedConfigurationIsRejected` verifies corrupt JSON is reported.
+- `TestSwitchReportsArchivedTasksClearly` verifies archived tasks receive a specific, actionable error.
+
+Finished tasks are intentionally removed from the current branch's active history by `tm finish`; they remain available through `tm list` in the archive section.
+
 ## Troubleshooting
 
 - If the build fails, verify the Go version with `go version` and run `go mod download`.

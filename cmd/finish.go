@@ -10,6 +10,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var errNoActiveTask = errors.New("Fatal: no active task found")
+
 var finishCmd = &cobra.Command{
 	Use:   "finish",
 	Short: "Archive the current active task",
@@ -44,6 +46,9 @@ func runFinish() error {
 	taskPath := filepath.Join(".tracemesh", "tasks", taskID+".md")
 	archivePath := filepath.Join(".tracemesh", "archive", taskID+".md")
 	if _, err := os.Stat(taskPath); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return errors.New("Fatal: active task symlink is broken")
+		}
 		return fmt.Errorf("inspect active task %s: %w", taskID, err)
 	}
 	if _, err := os.Stat(archivePath); err == nil {
@@ -77,7 +82,7 @@ func runFinish() error {
 func activeTaskID(activePath string) (string, error) {
 	info, err := os.Lstat(activePath)
 	if errors.Is(err, os.ErrNotExist) {
-		return "", errors.New("Fatal: no active task found")
+		return "", errNoActiveTask
 	}
 	if err != nil {
 		return "", fmt.Errorf("inspect %s: %w", activePath, err)
@@ -100,7 +105,7 @@ func activeTaskID(activePath string) (string, error) {
 		return "", fmt.Errorf("Fatal: %s does not point to an active task", activePath)
 	}
 	taskID := strings.TrimSuffix(name, ".md")
-	if !switchTaskIDPattern.MatchString(taskID) {
+	if !taskIDPattern.MatchString(taskID) {
 		return "", fmt.Errorf("Fatal: invalid active task ID %s", taskID)
 	}
 	return taskID, nil

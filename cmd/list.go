@@ -57,7 +57,7 @@ func runList() error {
 			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
 				return nil
 			}
-			match := taskIDPattern.FindStringSubmatch(entry.Name())
+			match := taskFilePattern.FindStringSubmatch(entry.Name())
 			if len(match) == 0 {
 				return nil
 			}

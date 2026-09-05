@@ -28,4 +28,4 @@ vendor/
 !.env.example
 
 
-./test
+/tm

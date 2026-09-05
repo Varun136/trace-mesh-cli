@@ -52,14 +52,20 @@ func runAdd(agentName string) error {
 	}
 
 	target := resolveAgentTarget(agentName)
+	alreadyAdded := false
 	for _, existing := range cfg.Agents {
 		if existing == target.Name {
-			fmt.Printf("Tracemesh instructions for %s are already added.\n", target.Name)
-			return nil
+			alreadyAdded = true
+			break
 		}
 	}
+	// Always inspect the file: configuration can outlive a deleted instruction file.
 	if err := appendAgentPromptIfMissing(target.Path); err != nil {
 		return err
+	}
+	if alreadyAdded {
+		fmt.Printf("Tracemesh instructions for %s are already added.\n", target.Name)
+		return nil
 	}
 
 	cfg.ensureDefaults()

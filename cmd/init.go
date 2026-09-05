@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -20,7 +21,11 @@ const tracemeshAgentPrompt = "# [TRACEMESH CONTEXT PROTOCOL]\n" +
 
 const tracemeshHookBlock = `
 # >>> tracemesh post-checkout hook >>>
-tm sync > /dev/null 2>&1 &
+if tm_bin=$(command -v tm); then
+  "$tm_bin" sync || echo "Tracemesh warning: unable to synchronize task context" >&2
+else
+  echo "Tracemesh warning: tm is not on PATH; task context was not synchronized" >&2
+fi
 # <<< tracemesh post-checkout hook <<<
 `
 
@@ -100,15 +105,12 @@ func runInit() error {
 }
 
 func ensureGitRepository() error {
-	info, err := os.Stat(".git")
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("Fatal: .git directory not found. Tracemesh requires a Git repository to function.")
+	cmd := exec.Command("git", "rev-parse", "--git-dir")
+	if output, err := cmd.CombinedOutput(); err != nil {
+		if len(output) == 0 {
+			return fmt.Errorf("Fatal: Git repository not found. Tracemesh requires a Git repository to function")
 		}
-		return err
-	}
-	if !info.IsDir() {
-		return fmt.Errorf("Fatal: .git directory not found. Tracemesh requires a Git repository to function.")
+		return fmt.Errorf("Fatal: Git repository not found. Tracemesh requires a Git repository to function: %s", strings.TrimSpace(string(output)))
 	}
 	return nil
 }
@@ -200,17 +202,6 @@ func recordDetectedAgents(names []string) error {
 	return writeConfig(cfg)
 }
 
-func existingFiles(paths []string) []string {
-	var existing []string
-	for _, path := range paths {
-		info, err := os.Stat(path)
-		if err == nil && !info.IsDir() {
-			existing = append(existing, path)
-		}
-	}
-	return existing
-}
-
 func appendAgentPromptIfMissing(path string) error {
 	contents, err := os.ReadFile(path)
 	if err != nil {
@@ -221,7 +212,7 @@ func appendAgentPromptIfMissing(path string) error {
 		return nil
 	}
 
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil && filepath.Dir(path) != "." {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("create parent for %s: %w", path, err)
 	}
 
@@ -247,7 +238,11 @@ func appendAgentPromptIfMissing(path string) error {
 }
 
 func installPostCheckoutHook() error {
-	hookPath := filepath.Join(".git", "hooks", "post-checkout")
+	hookDir, err := gitPath("hooks")
+	if err != nil {
+		return err
+	}
+	hookPath := filepath.Join(hookDir, "post-checkout")
 
 	contents, err := os.ReadFile(hookPath)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -280,6 +275,18 @@ func installPostCheckoutHook() error {
 	}
 
 	return chmodExecutable(hookPath)
+}
+
+func gitPath(name string) (string, error) {
+	output, err := exec.Command("git", "rev-parse", "--git-path", name).CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("resolve Git %s path: %w", name, err)
+	}
+	path := strings.TrimSpace(string(output))
+	if path == "" {
+		return "", fmt.Errorf("resolve Git %s path: empty path", name)
+	}
+	return filepath.FromSlash(path), nil
 }
 
 func chmodExecutable(path string) error {

@@ -80,6 +80,26 @@ func tm(t *testing.T, dir, input string, args ...string) (string, int) {
 	return stdout.String() + stderr.String(), code
 }
 
+func tmStreams(t *testing.T, dir, input string, args ...string) (string, string, int) {
+	t.Helper()
+	cmd := exec.Command(tmBinary, args...)
+	cmd.Dir = dir
+	cmd.Stdin = strings.NewReader(input)
+	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &stdout, &stderr
+	err := cmd.Run()
+	code := 0
+	if err != nil {
+		if exit, ok := err.(*exec.ExitError); ok {
+			code = exit.ExitCode()
+		} else {
+			t.Fatalf("run tm: %v", err)
+		}
+	}
+	return stdout.String(), stderr.String(), code
+}
+
 func mustTM(t *testing.T, dir, input string, args ...string) string {
 	t.Helper()
 	output, code := tm(t, dir, input, args...)
@@ -117,10 +137,22 @@ func TestInitCreatesStateAndCheckoutHook(t *testing.T) {
 		}
 	}
 	hook := readFile(t, dir, ".git/hooks/post-checkout")
-	assertContains(t, hook, "tm sync", "tracemesh post-checkout hook")
+	assertContains(t, hook, "sync", "tracemesh post-checkout hook")
 	info, _ := os.Stat(filepath.Join(dir, ".git/hooks/post-checkout"))
 	if info.Mode()&0111 == 0 {
 		t.Fatal("post-checkout hook is not executable")
+	}
+}
+
+func TestPromptWritesProtocolToStdout(t *testing.T) {
+	dir := newRepo(t)
+	stdout, stderr, code := tmStreams(t, dir, "", "tm-prompt")
+	if code != 0 {
+		t.Fatalf("tm-prompt failed with exit code %d: %s", code, stderr)
+	}
+	assertContains(t, stdout, "TRACEMESH CONTEXT PROTOCOL")
+	if stderr != "" {
+		t.Fatalf("tm-prompt wrote unexpected stderr: %q", stderr)
 	}
 }
 
@@ -130,7 +162,7 @@ func TestInitRequiresGitRepository(t *testing.T) {
 	if code == 0 {
 		t.Fatal("init unexpectedly succeeded outside a Git repository")
 	}
-	assertContains(t, output, ".git directory not found", "requires a Git repository")
+	assertContains(t, output, "Git repository not found", "requires a Git repository")
 }
 
 func TestAddDetectsAndAddsAgentRules(t *testing.T) {
@@ -149,6 +181,25 @@ func TestAddDetectsAndAddsAgentRules(t *testing.T) {
 	}
 }
 
+func TestInitSupportsGitWorktrees(t *testing.T) {
+	dir := newRepo(t)
+	worktree := filepath.Join(t.TempDir(), "worktree")
+	runIn(t, dir, "git", "worktree", "add", "-q", "-b", "worktree-branch", worktree)
+	output := mustTM(t, worktree, "", "init")
+	assertContains(t, output, "Tracemesh initialized successfully.")
+}
+
+func TestAddRepairsDeletedConfiguredAgentFile(t *testing.T) {
+	dir := newRepo(t)
+	mustTM(t, dir, "", "init")
+	mustTM(t, dir, "", "add", "cursor")
+	if err := os.Remove(filepath.Join(dir, ".cursorrules")); err != nil {
+		t.Fatal(err)
+	}
+	mustTM(t, dir, "", "add", "cursor")
+	assertContains(t, readFile(t, dir, ".cursorrules"), "TRACEMESH CONTEXT PROTOCOL")
+}
+
 func TestAddFallbackAndRequiresInit(t *testing.T) {
 	dir := newRepo(t)
 	output, code := tm(t, dir, "", "add", "unknown-agent")
@@ -160,6 +211,49 @@ func TestAddFallbackAndRequiresInit(t *testing.T) {
 	output = mustTM(t, dir, "", "add", "unknown-agent")
 	assertContains(t, output, "AGENTS.md")
 	assertContains(t, readFile(t, dir, "AGENTS.md"), "TRACEMESH CONTEXT PROTOCOL")
+}
+
+func TestInvalidInputsAndDetachedHeadAreRejected(t *testing.T) {
+	dir := newRepo(t)
+	mustTM(t, dir, "", "init")
+	if output, code := tm(t, dir, "", "start", "   "); code == 0 {
+		t.Fatalf("blank title unexpectedly succeeded: %s", output)
+	}
+	mustTM(t, dir, "", "start", "Task")
+	if output, code := tm(t, dir, "", "note", "   "); code == 0 {
+		t.Fatalf("blank note unexpectedly succeeded: %s", output)
+	}
+	runIn(t, dir, "git", "checkout", "-q", "--detach", "HEAD")
+	output, code := tm(t, dir, "", "status")
+	if code == 0 {
+		t.Fatalf("status unexpectedly succeeded in detached HEAD: %s", output)
+	}
+	assertContains(t, output, "detached HEAD is not supported")
+}
+
+func TestMalformedConfigurationIsRejected(t *testing.T) {
+	dir := newRepo(t)
+	mustTM(t, dir, "", "init")
+	if err := os.WriteFile(filepath.Join(dir, ".tracemesh/config.json"), []byte("{invalid"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	output, code := tm(t, dir, "", "list")
+	if code == 0 {
+		t.Fatal("list unexpectedly accepted malformed configuration")
+	}
+	assertContains(t, output, "parse .tracemesh/config.json")
+}
+
+func TestSwitchReportsArchivedTasksClearly(t *testing.T) {
+	dir := newRepo(t)
+	mustTM(t, dir, "", "init")
+	mustTM(t, dir, "", "start", "Archive me")
+	mustTM(t, dir, "", "finish")
+	output, code := tm(t, dir, "", "switch", "TM-001")
+	if code == 0 {
+		t.Fatal("switch unexpectedly activated an archived task")
+	}
+	assertContains(t, output, "is archived and cannot be activated")
 }
 
 func TestStartCreatesDescriptionAndActiveTask(t *testing.T) {

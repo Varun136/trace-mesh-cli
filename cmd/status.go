@@ -34,7 +34,7 @@ func runStatus() error {
 	fmt.Printf("Branch: %s\n", branch)
 	activePath := filepath.Join(".tracemesh", "active.md")
 	taskID, err := activeTaskID(activePath)
-	if errors.Is(err, os.ErrNotExist) {
+	if errors.Is(err, errNoActiveTask) {
 		fmt.Println("Active task: none")
 		return nil
 	}

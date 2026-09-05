@@ -16,7 +16,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var taskIDPattern = regexp.MustCompile(`^TM-(\d+)(?:\.md)?$`)
+var taskIDPattern = regexp.MustCompile(`^TM-(\d+)$`)
+var taskFilePattern = regexp.MustCompile(`^TM-(\d+)(?:\.md)?$`)
 
 const taskTemplate = "# %s\n\n**ID:** %s\n**Date:** %s\n**Status:** In Progress\n\n## Description\n%s\n\n## Decision Log\n"
 
@@ -117,14 +118,7 @@ func ensureActiveIsAvailable() error {
 	if info.Mode()&os.ModeSymlink != 0 {
 		return errors.New("Fatal: an active task already exists; close or archive it before starting another task")
 	}
-	contents, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("read %s: %w", path, err)
-	}
-	if strings.TrimSpace(string(contents)) != "" {
-		return errors.New("Fatal: an active task already exists; close or archive it before starting another task")
-	}
-	return nil
+	return errors.New("Fatal: an active task already exists but is not a valid symlink; close or archive it before starting another task")
 }
 
 func nextTaskID() (string, error) {
@@ -137,7 +131,7 @@ func nextTaskID() (string, error) {
 		if entry.IsDir() {
 			return nil
 		}
-		match := taskIDPattern.FindStringSubmatch(entry.Name())
+		match := taskFilePattern.FindStringSubmatch(entry.Name())
 		if len(match) == 0 {
 			return nil
 		}

@@ -4,13 +4,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 
 	"github.com/spf13/cobra"
 )
-
-var switchTaskIDPattern = regexp.MustCompile(`^TM-\d+$`)
 
 var switchCmd = &cobra.Command{
 	Use:   "switch [task ID]",
@@ -38,7 +35,13 @@ func runSwitch(taskID string) error {
 		return err
 	}
 
-	if !switchTaskIDPattern.MatchString(taskID) || !activeTaskExists(taskID) {
+	if !taskIDPattern.MatchString(taskID) {
+		return fmt.Errorf("Error: invalid task ID %s.", taskID)
+	}
+	if !activeTaskExists(taskID) {
+		if archivedTaskExists(taskID) {
+			return fmt.Errorf("Error: Task %s is archived and cannot be activated.", taskID)
+		}
 		return fmt.Errorf("Error: Task %s does not exist.", taskID)
 	}
 
@@ -66,7 +69,15 @@ func runSwitch(taskID string) error {
 }
 
 func activeTaskExists(taskID string) bool {
-	info, err := os.Stat(filepath.Join(".tracemesh", "tasks", taskID+".md"))
+	return taskFileExists(filepath.Join(".tracemesh", "tasks", taskID+".md"))
+}
+
+func archivedTaskExists(taskID string) bool {
+	return taskFileExists(filepath.Join(".tracemesh", "archive", taskID+".md"))
+}
+
+func taskFileExists(path string) bool {
+	info, err := os.Stat(path)
 	return err == nil && !info.IsDir()
 }
 
