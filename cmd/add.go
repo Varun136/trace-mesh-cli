@@ -24,7 +24,7 @@ var supportedAgentTargets = map[string]string{
 	"copilot":     filepath.Join(".github", "copilot-instructions.md"),
 	"cline":       ".clinerules",
 	"opencode":    "AGENTS.md",
-	"antigravity": filepath.Join(".agents", "rules"),
+	"antigravity": "GEMINI.md (or .agents/rule[s]/tracemesh.md)",
 }
 
 var addCmd = &cobra.Command{
@@ -52,6 +52,12 @@ func runAdd(agentName string) error {
 	}
 
 	target := resolveAgentTarget(agentName)
+	for _, existing := range cfg.Agents {
+		if existing == target.Name {
+			fmt.Printf("Tracemesh instructions for %s are already added.\n", target.Name)
+			return nil
+		}
+	}
 	if err := appendAgentPromptIfMissing(target.Path); err != nil {
 		return err
 	}
@@ -69,6 +75,17 @@ func runAdd(agentName string) error {
 
 func resolveAgentTarget(agentName string) agentTarget {
 	normalized := strings.ToLower(strings.TrimSpace(agentName))
+	if normalized == "antigravity" {
+		if info, err := os.Stat("GEMINI.md"); err == nil && !info.IsDir() {
+			return agentTarget{Name: normalized, Path: "GEMINI.md"}
+		}
+		for _, directory := range []string{filepath.Join(".agents", "rule"), filepath.Join(".agents", "rules")} {
+			if info, err := os.Stat(directory); err == nil && info.IsDir() {
+				return agentTarget{Name: normalized, Path: filepath.Join(directory, "tracemesh.md")}
+			}
+		}
+		return agentTarget{Name: normalized, Path: "GEMINI.md"}
+	}
 	if path, ok := supportedAgentTargets[normalized]; ok {
 		return agentTarget{Name: normalized, Path: path}
 	}

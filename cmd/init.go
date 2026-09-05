@@ -83,7 +83,11 @@ func runInit() error {
 		return err
 	}
 
-	if err := injectAgentRules(); err != nil {
+	detectedAgents, err := injectAgentRules()
+	if err != nil {
+		return err
+	}
+	if err := recordDetectedAgents(detectedAgents); err != nil {
 		return err
 	}
 
@@ -138,29 +142,62 @@ func scaffoldTracemesh() error {
 	return nil
 }
 
-func injectAgentRules() error {
-	agentFiles := []string{
-		".cursorrules",
-		"CLAUDE.md",
-		".windsurfrules",
-		filepath.Join(".github", "copilot-instructions.md"),
-		".clinerules",
-		"AGENTS.md",
-		filepath.Join(".agents", "rules"),
-	}
-
-	targets := existingFiles(agentFiles)
+func injectAgentRules() ([]string, error) {
+	targets := detectedAgentTargets()
 	if len(targets) == 0 {
-		targets = []string{".cursorrules"}
+		fmt.Println("No supported AI-agent instruction files detected. Use `tm-prompt` to view the Tracemesh instructions and add them manually.")
+		return nil, nil
 	}
 
+	detected := make([]string, 0, len(targets))
 	for _, target := range targets {
-		if err := appendAgentPromptIfMissing(target); err != nil {
-			return err
+		if err := appendAgentPromptIfMissing(target.Path); err != nil {
+			return nil, err
+		}
+		detected = append(detected, target.Name)
+		fmt.Printf("Auto-detected %s instructions in %s.\n", target.Name, target.Path)
+	}
+
+	return detected, nil
+}
+
+func detectedAgentTargets() []agentTarget {
+	var targets []agentTarget
+	for _, target := range []agentTarget{
+		{Name: "cursor", Path: ".cursorrules"},
+		{Name: "claude", Path: "CLAUDE.md"},
+		{Name: "windsurf", Path: ".windsurfrules"},
+		{Name: "copilot", Path: filepath.Join(".github", "copilot-instructions.md")},
+		{Name: "cline", Path: ".clinerules"},
+		{Name: "opencode", Path: "AGENTS.md"},
+		{Name: "antigravity", Path: "GEMINI.md"},
+	} {
+		if info, err := os.Stat(target.Path); err == nil && !info.IsDir() {
+			targets = append(targets, target)
 		}
 	}
 
-	return nil
+	for _, directory := range []string{filepath.Join(".agents", "rule"), filepath.Join(".agents", "rules")} {
+		if info, err := os.Stat(directory); err == nil && info.IsDir() {
+			targets = append(targets, agentTarget{Name: "antigravity", Path: filepath.Join(directory, "tracemesh.md")})
+			break
+		}
+	}
+	return targets
+}
+
+func recordDetectedAgents(names []string) error {
+	if len(names) == 0 {
+		return nil
+	}
+	cfg, err := readConfig()
+	if err != nil {
+		return err
+	}
+	for _, name := range names {
+		cfg.addAgent(name)
+	}
+	return writeConfig(cfg)
 }
 
 func existingFiles(paths []string) []string {
