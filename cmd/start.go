@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -51,12 +53,17 @@ func runStart(title string) error {
 		return err
 	}
 
+	description, err := promptTaskDescription(title)
+	if err != nil {
+		return err
+	}
+
 	next, err := nextTaskID()
 	if err != nil {
 		return err
 	}
 	taskPath := filepath.Join(".tracemesh", "tasks", next+".md")
-	contents := fmt.Sprintf(taskTemplate, title, next, time.Now().Format("2006-01-02"), title)
+	contents := fmt.Sprintf(taskTemplate, title, next, time.Now().Format("2006-01-02"), description)
 	if err := writeNewFile(taskPath, []byte(contents)); err != nil {
 		return err
 	}
@@ -71,6 +78,19 @@ func runStart(title string) error {
 
 	fmt.Printf("Started %s on branch %s.\n", next, branch)
 	return nil
+}
+
+func promptTaskDescription(title string) (string, error) {
+	fmt.Print("Description (press Enter to use the task title): ")
+	description, err := bufio.NewReader(os.Stdin).ReadString('\n')
+	if err != nil && !errors.Is(err, io.EOF) {
+		return "", fmt.Errorf("read task description: %w", err)
+	}
+	description = strings.TrimSpace(description)
+	if description == "" {
+		return title, nil
+	}
+	return description, nil
 }
 
 func currentBranch() (string, error) {
