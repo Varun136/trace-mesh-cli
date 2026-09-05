@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -24,7 +25,40 @@ tm sync > /dev/null 2>&1 &
 `
 
 type config struct {
-	Branches map[string][]string `json:"branches"`
+	Branches        map[string][]string `json:"branches"`
+	Agents          []string            `json:"agents"`
+	SupportedAgents map[string]string   `json:"supported_agents"`
+}
+
+func (cfg *config) ensureDefaults() {
+	if cfg.Branches == nil {
+		cfg.Branches = map[string][]string{}
+	}
+	if cfg.Agents == nil {
+		cfg.Agents = []string{}
+	}
+	if cfg.SupportedAgents == nil {
+		cfg.SupportedAgents = defaultSupportedAgents()
+	}
+}
+
+func (cfg *config) addAgent(agent string) {
+	for _, existing := range cfg.Agents {
+		if existing == agent {
+			return
+		}
+	}
+	cfg.Agents = append(cfg.Agents, agent)
+	sort.Strings(cfg.Agents)
+}
+
+func defaultSupportedAgents() map[string]string {
+	agents := make(map[string]string, len(supportedAgentTargets)+1)
+	for name, path := range supportedAgentTargets {
+		agents[name] = path
+	}
+	agents["agents"] = "AGENTS.md"
+	return agents
 }
 
 var initCmd = &cobra.Command{
@@ -90,6 +124,7 @@ func scaffoldTracemesh() error {
 	}
 
 	defaultConfig := config{Branches: map[string][]string{}}
+	defaultConfig.ensureDefaults()
 	contents, err := json.MarshalIndent(defaultConfig, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal default config: %w", err)
@@ -109,6 +144,9 @@ func injectAgentRules() error {
 		"CLAUDE.md",
 		".windsurfrules",
 		filepath.Join(".github", "copilot-instructions.md"),
+		".clinerules",
+		"AGENTS.md",
+		filepath.Join(".agents", "rules"),
 	}
 
 	targets := existingFiles(agentFiles)
