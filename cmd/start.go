@@ -16,7 +16,7 @@ import (
 
 var taskIDPattern = regexp.MustCompile(`^TM-(\d+)(?:\.md)?$`)
 
-const taskTemplate = "# %s\n\n**ID:** %s\n**Date:** %s\n**Status:** In Progress\n\n## Description\n%s\n"
+const taskTemplate = "# %s\n\n**ID:** %s\n**Date:** %s\n**Status:** In Progress\n\n## Description\n%s\n\n## Decision Log\n"
 
 var startCmd = &cobra.Command{
 	Use:   "start [task title]",
@@ -154,11 +154,8 @@ func activateTask(id string) error {
 		return fmt.Errorf("remove %s: %w", activePath, err)
 	}
 	target := filepath.ToSlash(filepath.Join("tasks", id+".md"))
-	if err := os.Symlink(target, activePath); err == nil {
-		return nil
-	}
-	if err := os.WriteFile(activePath, []byte("ref: "+target+"\n"), 0o644); err != nil {
-		return fmt.Errorf("create active task pointer: %w", err)
+	if err := os.Symlink(target, activePath); err != nil {
+		return fmt.Errorf("create %s symlink: %w", activePath, err)
 	}
 	return nil
 }
