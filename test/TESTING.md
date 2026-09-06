@@ -86,7 +86,7 @@ go test ./test -run TestCommandsRequireValidContext -v
 
 **Run:** `go test ./test -run TestStatusShowAndNote -v`
 
-**Expected:** `status` reports the branch and active task, `show` prints the complete active Markdown document, and `note` appends the supplied text to the decision log.
+**Expected:** `status` reports the branch and active task, `show` prints the complete active Markdown document, and `note` appends the supplied text to the implementation log.
 
 ### `TestListAndHistoryShowActiveAndArchivedTasks`
 
@@ -116,7 +116,7 @@ go test ./test -run TestCommandsRequireValidContext -v
 
 **Run:** `go test ./test -run TestPromptPrintsAgentProtocol -v`
 
-**Expected:** `tm-prompt` prints the protocol, including the requirement to read `.tracemesh/active.md` and maintain the decision log.
+**Expected:** `tm-prompt` prints the protocol, including the requirement to read `.tracemesh/active.md` and maintain the implementation log.
 
 ### `TestCommandsRequireValidContext`
 

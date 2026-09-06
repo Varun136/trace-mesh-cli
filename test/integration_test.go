@@ -262,7 +262,7 @@ func TestStartCreatesDescriptionAndActiveTask(t *testing.T) {
 	output := mustTM(t, dir, "Detailed implementation plan\n", "start", "Implement feature")
 	assertContains(t, output, "Started TM-001", "on branch")
 	task := readFile(t, dir, ".tracemesh/tasks/TM-001.md")
-	assertContains(t, task, "# Implement feature", "**ID:** TM-001", "**Status:** In Progress", "Detailed implementation plan", "## Decision Log")
+	assertContains(t, task, "# Implement feature", "**ID:** TM-001", "**Status:** In Progress", "Detailed implementation plan", "## Implementation Log")
 	active, err := os.Readlink(filepath.Join(dir, ".tracemesh/active.md"))
 	if err != nil || filepath.ToSlash(active) != "tasks/TM-001.md" {
 		t.Fatalf("unexpected active task link %q: %v", active, err)
@@ -288,7 +288,7 @@ func TestStatusShowAndNote(t *testing.T) {
 	status := mustTM(t, dir, "", "status")
 	assertContains(t, status, "Branch: master", "Active task: TM-001 - Track work")
 	show := mustTM(t, dir, "", "show")
-	assertContains(t, show, "# Track work", "## Decision Log")
+	assertContains(t, show, "# Track work", "## Implementation Log")
 	mustTM(t, dir, "", "note", "Chose the safer implementation")
 	assertContains(t, readFile(t, dir, ".tracemesh/tasks/TM-001.md"), "Chose the safer implementation")
 }
@@ -355,7 +355,7 @@ func TestFinishArchivesAndClearsActiveTask(t *testing.T) {
 func TestPromptPrintsAgentProtocol(t *testing.T) {
 	dir := newRepo(t)
 	output := mustTM(t, dir, "", "tm-prompt")
-	assertContains(t, output, "TRACEMESH CONTEXT PROTOCOL", ".tracemesh/active.md", "Decision Log")
+	assertContains(t, output, "TRACEMESH CONTEXT PROTOCOL", ".tracemesh/active.md", "Implementation Log")
 }
 
 func TestCommandsRequireValidContext(t *testing.T) {

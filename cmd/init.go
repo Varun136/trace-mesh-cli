@@ -14,10 +14,16 @@ import (
 )
 
 const tracemeshAgentPrompt = "# [TRACEMESH CONTEXT PROTOCOL]\n" +
-	"You must maintain situational awareness by reading local context.\n" +
-	"1. ALWAYS read `.tracemesh/active.md` before generating your first response. This file contains the true state of the user's task.\n" +
-	"2. Do NOT run terminal commands to log decisions. \n" +
-	"3. BEFORE you finish your work or hand back control to the user, you MUST open `.tracemesh/active.md` natively in your editor and append a 1-sentence summary of your major code changes under the `## Decision Log` header.\n"
+	"You must use the Tracemesh task file as the source of truth for the current work.\n\n" +
+	"1. BEFORE generating your first response, read `.tracemesh/active.md`.\n" +
+	"2. Review the task title, ID, status, description, and implementation log before making changes.\n" +
+	"3. Keep your work aligned with the active task description. Ask the user when requirements are unclear.\n" +
+	"4. Record important implementation decisions, discoveries, and changes under the `## Implementation Log` header.\n" +
+	"5. Add implementation-log entries as timestamped Markdown bullets using this format: `- YYYY-MM-DDTHH:MM:SS±HH:MM: Description`\n" +
+	"6. Do NOT run terminal commands solely to record implementation details.\n" +
+	"7. Do NOT overwrite, delete, or replace `.tracemesh/active.md`.\n" +
+	"8. BEFORE finishing or handing control back to the user, read `.tracemesh/active.md` again and append one short sentence summarizing the major implementation changes under `## Implementation Log`.\n" +
+	"9. Keep implementation-log entries concise and relevant. Do not duplicate the entire conversation or task file.\n"
 
 const tracemeshHookBlock = `
 # >>> tracemesh post-checkout hook >>>

@@ -51,8 +51,8 @@ func runNote(text string) error {
 	if err != nil {
 		return fmt.Errorf("read %s: %w", activePath, err)
 	}
-	if !strings.Contains(string(contents), "\n## Decision Log\n") {
-		return fmt.Errorf("Fatal: active task %s is missing the ## Decision Log header", activePath)
+	if !strings.Contains(string(contents), "\n## Implementation Log\n") {
+		return fmt.Errorf("Fatal: active task %s is missing the ## Implementation Log header", activePath)
 	}
 
 	file, err := os.OpenFile(activePath, os.O_WRONLY|os.O_APPEND, 0)

@@ -19,7 +19,7 @@ import (
 var taskIDPattern = regexp.MustCompile(`^TM-(\d+)$`)
 var taskFilePattern = regexp.MustCompile(`^TM-(\d+)(?:\.md)?$`)
 
-const taskTemplate = "# %s\n\n**ID:** %s\n**Date:** %s\n**Status:** In Progress\n\n## Description\n%s\n\n## Decision Log\n"
+const taskTemplate = "# %s\n\n**ID:** %s\n**Date:** %s\n**Status:** In Progress\n\n## Description\n%s\n\n## Implementation Log\n"
 
 var startCmd = &cobra.Command{
 	Use:   "start [task title]",
