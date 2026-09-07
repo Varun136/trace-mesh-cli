@@ -8,10 +8,10 @@ import (
 )
 
 var (
-	cfgFile  string
-	version  string
-	commit   string
-	date     string
+	cfgFile string
+	version string
+	commit  string
+	date    string
 )
 
 var rootCmd = &cobra.Command{
