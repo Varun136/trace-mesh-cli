@@ -79,7 +79,7 @@ func historyTaskTitle(id string) (string, bool, error) {
 			if entry.IsDir() || entry.Name() != id+".md" {
 				return nil
 			}
-			contents, err := os.ReadFile(path)
+			contents, err := readTaskFile(path)
 			if err != nil {
 				return err
 			}

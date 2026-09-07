@@ -23,6 +23,10 @@ func init() {
 }
 
 func runSync() error {
+	return withConfigLock(runSyncLocked)
+}
+
+func runSyncLocked() error {
 	if err := ensureGitRepository(); err != nil {
 		return err
 	}
@@ -30,7 +34,7 @@ func runSync() error {
 	if err != nil {
 		return err
 	}
-	cfg, err := readConfig()
+	cfg, err := readConfigUnlocked()
 	if err != nil {
 		fmt.Printf("Warning: unable to read Tracemesh configuration; active task cleared: %v\n", err)
 		return clearActiveTask()
@@ -52,7 +56,7 @@ func runSync() error {
 
 	if len(valid) != len(configured) {
 		cfg.Branches[branch] = valid
-		if err := writeConfig(cfg); err != nil {
+		if err := writeConfigUnlocked(cfg); err != nil {
 			return err
 		}
 	}

@@ -26,6 +26,10 @@ func init() {
 }
 
 func runFinish() error {
+	return withConfigLock(runFinishLocked)
+}
+
+func runFinishLocked() error {
 	if err := ensureGitRepository(); err != nil {
 		return err
 	}
@@ -33,7 +37,7 @@ func runFinish() error {
 	if err != nil {
 		return err
 	}
-	cfg, err := readConfig()
+	cfg, err := readConfigUnlocked()
 	if err != nil {
 		return err
 	}
@@ -68,7 +72,7 @@ func runFinish() error {
 		}
 	}
 	cfg.Branches[branch] = remaining
-	if err := writeConfig(cfg); err != nil {
+	if err := writeConfigUnlocked(cfg); err != nil {
 		return err
 	}
 	if err := os.Remove(activePath); err != nil && !errors.Is(err, os.ErrNotExist) {

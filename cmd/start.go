@@ -35,6 +35,12 @@ func init() {
 }
 
 func runStart(title string) error {
+	return withConfigLock(func() error {
+		return runStartLocked(title)
+	})
+}
+
+func runStartLocked(title string) error {
 	if strings.TrimSpace(title) == "" {
 		return errors.New("Fatal: task title cannot be empty")
 	}
@@ -46,7 +52,7 @@ func runStart(title string) error {
 	if err != nil {
 		return err
 	}
-	cfg, err := readConfig()
+	cfg, err := readConfigUnlocked()
 	if err != nil {
 		return err
 	}
@@ -70,7 +76,7 @@ func runStart(title string) error {
 	}
 
 	cfg.Branches[branch] = append(cfg.Branches[branch], next)
-	if err := writeConfig(cfg); err != nil {
+	if err := writeConfigUnlocked(cfg); err != nil {
 		return err
 	}
 	if err := activateTask(next); err != nil {

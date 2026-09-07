@@ -23,6 +23,12 @@ func init() {
 }
 
 func runSwitch(taskID string) error {
+	return withConfigLock(func() error {
+		return runSwitchLocked(taskID)
+	})
+}
+
+func runSwitchLocked(taskID string) error {
 	if err := ensureGitRepository(); err != nil {
 		return err
 	}
@@ -30,7 +36,7 @@ func runSwitch(taskID string) error {
 	if err != nil {
 		return err
 	}
-	cfg, err := readConfig()
+	cfg, err := readConfigUnlocked()
 	if err != nil {
 		return err
 	}
@@ -57,7 +63,7 @@ func runSwitch(taskID string) error {
 	reordered = append(reordered, taskID)
 	cfg.Branches[branch] = reordered
 
-	if err := writeConfig(cfg); err != nil {
+	if err := writeConfigUnlocked(cfg); err != nil {
 		return err
 	}
 	if err := activateTask(taskID); err != nil {

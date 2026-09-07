@@ -7,7 +7,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var cfgFile string
+var (
+	cfgFile  string
+	version  string
+	commit   string
+	date     string
+)
 
 var rootCmd = &cobra.Command{
 	Use:           "tm",
@@ -30,4 +35,19 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is .tracemesh/config.json)")
+	rootCmd.Version = buildVersion()
+}
+
+func buildVersion() string {
+	v := version
+	if v == "" {
+		v = "dev"
+	}
+	if commit != "" {
+		v += " (" + commit + ")"
+	}
+	if date != "" {
+		v += " built " + date
+	}
+	return v
 }

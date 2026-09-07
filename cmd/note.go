@@ -47,7 +47,7 @@ func runNote(text string) error {
 		return fmt.Errorf("Fatal: %s is not an OS symlink; text pointer fallback is unsupported", activePath)
 	}
 
-	contents, err := os.ReadFile(activePath)
+	contents, err := readTaskFile(activePath)
 	if err != nil {
 		return fmt.Errorf("read %s: %w", activePath, err)
 	}
@@ -55,13 +55,17 @@ func runNote(text string) error {
 		return fmt.Errorf("Fatal: active task %s is missing the ## Implementation Log header", activePath)
 	}
 
-	file, err := os.OpenFile(activePath, os.O_WRONLY|os.O_APPEND, 0)
+	entry := fmt.Sprintf("- %s: %s\n", time.Now().Format(time.RFC3339), text)
+	if len(contents)+len(entry) > maxTaskFileSize {
+		return fmt.Errorf("Fatal: note would make %s exceed maximum size of %d bytes", activePath, maxTaskFileSize)
+	}
+
+	file, err := os.OpenFile(activePath, os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
 		return fmt.Errorf("open %s: %w", activePath, err)
 	}
 	defer file.Close()
 
-	entry := fmt.Sprintf("- %s: %s\n", time.Now().Format(time.RFC3339), text)
 	if _, err := file.WriteString(entry); err != nil {
 		return fmt.Errorf("append note to %s: %w", activePath, err)
 	}

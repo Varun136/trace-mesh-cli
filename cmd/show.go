@@ -30,7 +30,7 @@ func runShow() error {
 	if _, err := activeTaskID(activePath); err != nil {
 		return err
 	}
-	contents, err := os.ReadFile(activePath)
+	contents, err := readTaskFile(activePath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return errors.New("Fatal: active task symlink is broken")

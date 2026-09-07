@@ -61,7 +61,7 @@ func runList() error {
 			if len(match) == 0 {
 				return nil
 			}
-			contents, err := os.ReadFile(path)
+			contents, err := readTaskFile(path)
 			if err != nil {
 				return fmt.Errorf("read %s: %w", path, err)
 			}

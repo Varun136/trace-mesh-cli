@@ -46,7 +46,7 @@ func runStatus() error {
 		return err
 	}
 
-	contents, err := os.ReadFile(activePath)
+	contents, err := readTaskFile(activePath)
 	if err != nil {
 		return fmt.Errorf("read %s: %w", activePath, err)
 	}
