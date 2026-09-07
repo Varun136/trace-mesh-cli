@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -90,6 +91,9 @@ func runInit() error {
 		return err
 	}
 
+	if err := ensureTracemeshIgnored(); err != nil {
+		return err
+	}
 	if err := scaffoldTracemesh(); err != nil {
 		return err
 	}
@@ -153,8 +157,25 @@ func scaffoldTracemesh() error {
 func injectAgentRules() ([]string, error) {
 	targets := detectedAgentTargets()
 	if len(targets) == 0 {
-		fmt.Println("No supported AI-agent instruction files detected. Use `tm-prompt` to view the Tracemesh instructions and add them manually.")
-		return nil, nil
+		fmt.Println("No supported AI-agent instruction file was detected.")
+		fmt.Println("Choose an option:")
+		fmt.Println("  [A] Create AGENTS.md and add the Tracemesh instructions (default)")
+		fmt.Println("  [B] Show the instructions so I can add them manually")
+		fmt.Print("Choice [A/B]: ")
+
+		choice, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+		if strings.EqualFold(strings.TrimSpace(choice), "b") {
+			fmt.Println("\nAdd the following instructions to your AI-agent instruction file:")
+			printTracemeshPrompt()
+			fmt.Println("Warning: AI-agent integration will not work until these instructions are added manually.")
+			return nil, nil
+		}
+
+		if err := appendAgentPromptIfMissing("AGENTS.md"); err != nil {
+			return nil, err
+		}
+		fmt.Println("Created AGENTS.md with the Tracemesh instructions.")
+		return []string{"agents"}, nil
 	}
 
 	detected := make([]string, 0, len(targets))
@@ -192,6 +213,31 @@ func detectedAgentTargets() []agentTarget {
 		}
 	}
 	return targets
+}
+
+func ensureTracemeshIgnored() error {
+	const entry = ".tracemesh/"
+	path := ".gitignore"
+	contents, err := os.ReadFile(path)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("read %s: %w", path, err)
+	}
+	for _, line := range strings.Split(string(contents), "\n") {
+		if strings.TrimSpace(line) == entry {
+			return nil
+		}
+	}
+
+	updated := string(contents)
+	if len(updated) > 0 && !strings.HasSuffix(updated, "\n") {
+		updated += "\n"
+	}
+	updated += entry + "\n"
+	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", path, err)
+	}
+	fmt.Printf("Added %s to %s.\n", entry, path)
+	return nil
 }
 
 func recordDetectedAgents(names []string) error {

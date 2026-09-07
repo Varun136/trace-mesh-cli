@@ -79,7 +79,7 @@ func runAddLocked(agentName string) error {
 		return err
 	}
 	if alreadyAdded {
-		fmt.Printf("Tracemesh instructions for %s are already added.\n", target.Name)
+		fmt.Printf("Tracemesh instructions for %s are already added in %s.\n", target.Name, target.Path)
 		return nil
 	}
 

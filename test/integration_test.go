@@ -131,17 +131,29 @@ func TestInitCreatesStateAndCheckoutHook(t *testing.T) {
 	dir := newRepo(t)
 	output := mustTM(t, dir, "", "init")
 	assertContains(t, output, "Tracemesh initialized successfully.")
-	for _, name := range []string{".tracemesh/config.json", ".tracemesh/tasks", ".tracemesh/archive", ".git/hooks/post-checkout"} {
+	for _, name := range []string{".tracemesh/config.json", ".tracemesh/tasks", ".tracemesh/archive", ".git/hooks/post-checkout", "AGENTS.md"} {
 		if _, err := os.Stat(filepath.Join(dir, name)); err != nil {
 			t.Fatalf("expected %s: %v", name, err)
 		}
 	}
+	assertContains(t, readFile(t, dir, ".gitignore"), ".tracemesh/")
+	assertContains(t, readFile(t, dir, "AGENTS.md"), "TRACEMESH CONTEXT PROTOCOL")
 	hook := readFile(t, dir, ".git/hooks/post-checkout")
 	assertContains(t, hook, "sync", "tracemesh post-checkout hook")
 	info, _ := os.Stat(filepath.Join(dir, ".git/hooks/post-checkout"))
 	if info.Mode()&0111 == 0 {
 		t.Fatal("post-checkout hook is not executable")
 	}
+}
+
+func TestInitCanShowProtocolWithoutCreatingFallbackFile(t *testing.T) {
+	dir := newRepo(t)
+	output := mustTM(t, dir, "b\n", "init")
+	assertContains(t, output, "AI-agent integration will not work until these instructions are added manually", "TRACEMESH CONTEXT PROTOCOL")
+	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md")); !os.IsNotExist(err) {
+		t.Fatalf("AGENTS.md should not be created for option B: %v", err)
+	}
+	assertContains(t, readFile(t, dir, ".gitignore"), ".tracemesh/")
 }
 
 func TestPromptWritesProtocolToStdout(t *testing.T) {

@@ -95,7 +95,9 @@ Tracemesh automatically detects and injects context protocols into:
 
 ## Configuration
 
-Tracemesh stores its state in `.tracemesh/` within your repository:
+Tracemesh stores its state in `.tracemesh/` within your repository. `tm init` automatically adds `.tracemesh/` to the repository's `.gitignore` so task state remains available when switching branches without being committed.
+
+If no supported AI-agent instruction file is found during initialization, Tracemesh asks whether to create `AGENTS.md` with the protocol (the default) or print the protocol for manual installation:
 
 ```
 .tracemesh/
