@@ -30,7 +30,7 @@ Download the latest release for your platform from the [Releases](https://github
 
 ### Requirements
 
-- Go 1.22 or later (for building from source)
+- Go 1.23 or later (for building from source)
 - Git 2.20 or later
 
 ## Quick Start

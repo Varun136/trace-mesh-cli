@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main, master]
+    tags: ['v*']
   pull_request:
     branches: [main, master]
 
@@ -20,7 +21,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.23'
           cache: true
 
       - name: Run golangci-lint
@@ -33,9 +34,10 @@ jobs:
     name: Test
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        go-version: ['1.22', '1.23']
+        go-version: ['1.23', '1.24']
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -53,11 +55,11 @@ jobs:
         run: go test -v -race ./test/...
 
       - name: Generate coverage report
-        if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.22'
+        if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.23'
         run: go tool cover -html=coverage.out -o coverage.html
 
       - name: Upload coverage
-        if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.22'
+        if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.23'
         uses: actions/upload-artifact@v4
         with:
           name: coverage
@@ -76,7 +78,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.23'
           cache: true
 
       - name: Build all platforms
@@ -104,7 +106,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.23'
           cache: true
 
       - name: Run GoReleaser

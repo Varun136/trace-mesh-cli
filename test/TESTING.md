@@ -8,7 +8,7 @@ The tests intentionally avoid checks unrelated to Tracemesh functionality.
 
 ## Prerequisites
 
-- Go 1.22 or newer
+- Go 1.23 or newer
 - Git available on `PATH`
 - A clean working tree is not required; tests use temporary repositories
 
