@@ -146,6 +146,20 @@ func TestInitCreatesStateAndCheckoutHook(t *testing.T) {
 	}
 }
 
+func TestSyncRestoresConfiguredAgentInstructions(t *testing.T) {
+	dir := newRepo(t)
+	if err := os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte("# Project rules\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	mustTM(t, dir, "", "init")
+	if err := os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte("# Branch-specific rules\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	output := mustTM(t, dir, "", "sync")
+	assertContains(t, output, "Restored Tracemesh instructions for claude", "CLAUDE.md")
+	assertContains(t, readFile(t, dir, "CLAUDE.md"), "TRACEMESH CONTEXT PROTOCOL")
+}
+
 func TestInitCanShowProtocolWithoutCreatingFallbackFile(t *testing.T) {
 	dir := newRepo(t)
 	output := mustTM(t, dir, "b\n", "init")

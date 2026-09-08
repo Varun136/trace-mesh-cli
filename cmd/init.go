@@ -240,6 +240,24 @@ func ensureTracemeshIgnored() error {
 	return nil
 }
 
+func repairConfiguredAgentRules(cfg *config) error {
+	for _, name := range cfg.Agents {
+		target := resolveAgentTarget(name)
+		contents, err := os.ReadFile(target.Path)
+		if err == nil && strings.Contains(string(contents), "[TRACEMESH CONTEXT PROTOCOL]") {
+			continue
+		}
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("read configured %s instructions %s: %w", name, target.Path, err)
+		}
+		if err := appendAgentPromptIfMissing(target.Path); err != nil {
+			return err
+		}
+		fmt.Printf("Restored Tracemesh instructions for %s in %s.\n", name, target.Path)
+	}
+	return nil
+}
+
 func recordDetectedAgents(names []string) error {
 	if len(names) == 0 {
 		return nil

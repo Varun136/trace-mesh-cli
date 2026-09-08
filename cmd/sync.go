@@ -39,6 +39,9 @@ func runSyncLocked() error {
 		fmt.Printf("Warning: unable to read Tracemesh configuration; active task cleared: %v\n", err)
 		return clearActiveTask()
 	}
+	if err := repairConfiguredAgentRules(cfg); err != nil {
+		return err
+	}
 
 	configured := cfg.Branches[branch]
 	valid := make([]string, 0, len(configured))
