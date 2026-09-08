@@ -28,5 +28,7 @@ vendor/
 .env.*
 !.env.example
 
+# Tracemesh local state (created by `tm init`, never commit)
+/.tracemesh/
 
 /tm

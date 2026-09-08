@@ -20,7 +20,7 @@ Tracemesh (`tm`) is a low-friction CLI that tracks work tasks in Git branches an
 
 ```bash
 git clone https://github.com/Varun136/trace-mesh-cli.git
-cd tracemesh
+cd trace-mesh-cli
 make install
 ```
 
