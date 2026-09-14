@@ -1,3 +1,6 @@
+# GoReleaser v2 configuration. Release with: git tag vX.Y.Z && git push origin vX.Y.Z
+version: 2
+
 project_name: tracemesh
 
 before:
@@ -12,36 +15,32 @@ builds:
     goos:
       - linux
       - darwin
-      - windows
     goarch:
       - amd64
       - arm64
       - arm
     goarm:
       - "7"
-    ignore:
-      - goos: windows
-        goarch: arm
     ldflags:
       - -s -w -X tracemesh/cmd.version={{.Version}} -X tracemesh/cmd.commit={{.ShortCommit}} -X tracemesh/cmd.date={{.Date}}
 
 archives:
-  - format: tar.gz
+  - formats: ["tar.gz"]
     name_template: >-
       {{ .ProjectName }}_
       {{- title .Os }}_
       {{- if eq .Arch "amd64" }}x86_64
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
-    format_overrides:
-      - goos: windows
-        format: zip
+    files:
+      - LICENSE
+      - README.md
 
 checksum:
   name_template: 'checksums.txt'
 
 snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+  version_template: "{{ incpatch .Version }}-next"
 
 changelog:
   sort: asc
@@ -53,9 +52,11 @@ changelog:
       - Merge pull request
       - Merge branch
 
+# Published (non-draft) releases are required so users can install pre-built
+# binaries without Go (see install.sh, which resolves the latest release).
 release:
   github:
     owner: Varun136
     name: trace-mesh-cli
-  draft: true
+  draft: false
   prerelease: auto

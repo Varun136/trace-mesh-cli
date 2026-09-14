@@ -272,7 +272,7 @@ func recordDetectedAgents(names []string) error {
 	return writeConfig(cfg)
 }
 
-func appendAgentPromptIfMissing(path string) error {
+func appendAgentPromptIfMissing(path string) (err error) {
 	contents, err := os.ReadFile(path)
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
@@ -298,16 +298,16 @@ func appendAgentPromptIfMissing(path string) error {
 	if err != nil {
 		return fmt.Errorf("open %s: %w", path, err)
 	}
-	defer file.Close()
+	defer closeOnReturn(file, &err, path)
 
-	if _, err := file.WriteString(prefix + tracemeshAgentPrompt); err != nil {
+	if _, err = file.WriteString(prefix + tracemeshAgentPrompt); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 
 	return nil
 }
 
-func installPostCheckoutHook() error {
+func installPostCheckoutHook() (err error) {
 	hookDir, err := gitPath("hooks")
 	if err != nil {
 		return err
@@ -338,9 +338,9 @@ func installPostCheckoutHook() error {
 	if err != nil {
 		return fmt.Errorf("open %s: %w", hookPath, err)
 	}
-	defer file.Close()
+	defer closeOnReturn(file, &err, hookPath)
 
-	if _, err := file.WriteString(prefix + tracemeshHookBlock); err != nil {
+	if _, err = file.WriteString(prefix + tracemeshHookBlock); err != nil {
 		return fmt.Errorf("write %s: %w", hookPath, err)
 	}
 

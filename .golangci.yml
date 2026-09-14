@@ -1,0 +1,20 @@
+linters:
+  enable:
+    - errcheck
+    - gofmt
+    - goimports
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+
+linters-settings:
+  staticcheck:
+    # ST1005 wants lowercase error strings, but tm intentionally uses
+    # Git-style "Fatal:"/"Error:" prefixes in user-facing CLI output.
+    checks: ["all", "-ST1005"]
+
+output:
+  formats:
+    - format: colored-line-number
+      path: stdout

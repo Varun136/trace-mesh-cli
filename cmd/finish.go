@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -81,36 +80,4 @@ func runFinishLocked() error {
 
 	fmt.Printf("Finished %s on branch %s.\n", taskID, branch)
 	return nil
-}
-
-func activeTaskID(activePath string) (string, error) {
-	info, err := os.Lstat(activePath)
-	if errors.Is(err, os.ErrNotExist) {
-		return "", errNoActiveTask
-	}
-	if err != nil {
-		return "", fmt.Errorf("inspect %s: %w", activePath, err)
-	}
-	if info.Mode()&os.ModeSymlink == 0 {
-		return "", fmt.Errorf("Fatal: %s is not an OS symlink", activePath)
-	}
-
-	target, err := os.Readlink(activePath)
-	if err != nil {
-		return "", fmt.Errorf("read %s symlink: %w", activePath, err)
-	}
-	target = filepath.ToSlash(filepath.Clean(target))
-	if !strings.HasPrefix(target, "tasks/") || strings.Count(strings.TrimPrefix(target, "tasks/"), "/") != 0 {
-		return "", fmt.Errorf("Fatal: %s does not point to an active task", activePath)
-	}
-
-	name := filepath.Base(target)
-	if !strings.HasSuffix(name, ".md") {
-		return "", fmt.Errorf("Fatal: %s does not point to an active task", activePath)
-	}
-	taskID := strings.TrimSuffix(name, ".md")
-	if !taskIDPattern.MatchString(taskID) {
-		return "", fmt.Errorf("Fatal: invalid active task ID %s", taskID)
-	}
-	return taskID, nil
 }

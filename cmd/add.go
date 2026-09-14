@@ -122,9 +122,9 @@ func supportedAgentsHelp() string {
 
 	var builder strings.Builder
 	for _, name := range names {
-		builder.WriteString(fmt.Sprintf("  %-12s %s\n", name, supportedAgentTargets[name]))
+		fmt.Fprintf(&builder, "  %-12s %s\n", name, supportedAgentTargets[name])
 	}
-	builder.WriteString(fmt.Sprintf("  %-12s %s", "agents", "AGENTS.md (fallback for all other agents)"))
+	fmt.Fprintf(&builder, "  %-12s %s", "agents", "AGENTS.md (fallback for all other agents)")
 	return builder.String()
 }
 
@@ -222,7 +222,10 @@ func acquireLock(lockPath string) error {
 	for i := 0; i < lockRetries; i++ {
 		file, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 		if err == nil {
-			file.Close()
+			if cerr := file.Close(); cerr != nil {
+				_ = os.Remove(lockPath)
+				return fmt.Errorf("acquire lock %s: %w", lockPath, cerr)
+			}
 			return nil
 		}
 		if !errors.Is(err, os.ErrExist) {
@@ -230,7 +233,7 @@ func acquireLock(lockPath string) error {
 		}
 		info, statErr := os.Stat(lockPath)
 		if statErr == nil && time.Since(info.ModTime()) > lockTimeout {
-			os.Remove(lockPath)
+			_ = os.Remove(lockPath)
 			continue
 		}
 		time.Sleep(lockRetryDelay)
@@ -239,5 +242,6 @@ func acquireLock(lockPath string) error {
 }
 
 func releaseLock(lockPath string) {
-	os.Remove(lockPath)
+	// Best effort: a stale lock expires via lockTimeout on the next attempt.
+	_ = os.Remove(lockPath)
 }

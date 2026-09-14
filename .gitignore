@@ -1,7 +1,4 @@
 # Binaries for programs and plugins
-*.exe
-*.exe~
-*.dll
 *.so
 *.dylib
 
@@ -11,6 +8,7 @@
 # Output of the go build command
 *.out
 /bin/
+/dist/
 
 # Go workspace files
 go.work
