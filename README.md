@@ -16,7 +16,31 @@ Tracemesh (`tm`) is a low-friction CLI that tracks work tasks in Git branches an
 
 ## Installation
 
-### From Source
+No Go toolchain is needed to use `tm`. Pick one of the options below.
+
+### Install script (recommended)
+
+Installs the latest pre-built binary for your OS/architecture, verifies its
+SHA256 checksum, and places it on your `PATH`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Varun136/trace-mesh-cli/master/install.sh | bash
+```
+
+Install a specific version or directory:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Varun136/trace-mesh-cli/master/install.sh | bash -s -- --version v0.1.0 --prefix ~/.local/bin
+```
+
+### Pre-built binaries (manual)
+
+Download the archive for your platform from the
+[Releases](https://github.com/Varun136/trace-mesh-cli/releases) page, verify it
+against `checksums.txt`, extract it, and move the `tm` binary somewhere on
+your `PATH` (e.g. `/usr/local/bin`).
+
+### From source (requires Go)
 
 ```bash
 git clone https://github.com/Varun136/trace-mesh-cli.git
@@ -24,14 +48,10 @@ cd trace-mesh-cli
 make install
 ```
 
-### Pre-built Binaries
-
-Download the latest release for your platform from the [Releases](https://github.com/Varun136/trace-mesh-cli/releases) page.
-
 ### Requirements
 
-- Go 1.23 or later (for building from source)
 - Git 2.20 or later
+- Go 1.23 or later — only needed to build from source or run the test suite
 
 ## Quick Start
 

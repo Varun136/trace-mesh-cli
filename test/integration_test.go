@@ -20,16 +20,24 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic(err)
 	}
-	binary.Close()
-	os.Remove(binary.Name())
+	if err := binary.Close(); err != nil {
+		panic(err)
+	}
+	_ = os.Remove(binary.Name())
 	cmd := exec.Command("go", "build", "-o", binary.Name(), "./cmd/tm")
 	cmd.Dir = root
 	if output, err := cmd.CombinedOutput(); err != nil {
 		panic(fmt.Sprintf("build tm: %v\n%s", err, output))
 	}
 	tmBinary = binary.Name()
+	if runtime.GOOS == "windows" && !strings.HasSuffix(tmBinary, ".exe") {
+		if _, err := os.Stat(tmBinary + ".exe"); err == nil {
+			tmBinary += ".exe"
+		}
+	}
 	code := m.Run()
-	os.Remove(tmBinary)
+	_ = os.Remove(tmBinary)
+	_ = os.Remove(strings.TrimSuffix(tmBinary, ".exe"))
 	os.Exit(code)
 }
 
@@ -127,6 +135,48 @@ func readFile(t *testing.T, dir, name string) string {
 	return string(contents)
 }
 
+// activeTarget reads the .tracemesh/active.md pointer regardless of whether it
+// is stored as an OS symlink (Unix, Windows with privileges) or as a plain
+// pointer file (Windows fallback), returning the normalized relative target
+// such as "tasks/TM-001.md".
+func activeTarget(t *testing.T, dir string) string {
+	t.Helper()
+	activePath := filepath.Join(dir, ".tracemesh", "active.md")
+	info, err := os.Lstat(activePath)
+	if err != nil {
+		t.Fatalf("stat active task pointer: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		target, err := os.Readlink(activePath)
+		if err != nil {
+			t.Fatalf("read active task link: %v", err)
+		}
+		return filepath.ToSlash(target)
+	}
+	contents, err := os.ReadFile(activePath)
+	if err != nil {
+		t.Fatalf("read active task pointer: %v", err)
+	}
+	target := strings.TrimSpace(string(contents))
+	if i := strings.IndexAny(target, "\r\n"); i >= 0 {
+		target = strings.TrimSpace(target[:i])
+	}
+	return filepath.ToSlash(target)
+}
+
+// currentGitBranch reports the checked-out branch name in dir.
+func currentGitBranch(t *testing.T, dir string) string {
+	t.Helper()
+	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+	output, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("read current git branch: %v", err)
+	}
+	return strings.TrimSpace(string(output))
+}
+
 func TestInitCreatesStateAndCheckoutHook(t *testing.T) {
 	dir := newRepo(t)
 	output := mustTM(t, dir, "", "init")
@@ -140,9 +190,11 @@ func TestInitCreatesStateAndCheckoutHook(t *testing.T) {
 	assertContains(t, readFile(t, dir, "AGENTS.md"), "TRACEMESH CONTEXT PROTOCOL")
 	hook := readFile(t, dir, ".git/hooks/post-checkout")
 	assertContains(t, hook, "sync", "tracemesh post-checkout hook")
-	info, _ := os.Stat(filepath.Join(dir, ".git/hooks/post-checkout"))
-	if info.Mode()&0111 == 0 {
-		t.Fatal("post-checkout hook is not executable")
+	if runtime.GOOS != "windows" {
+		info, _ := os.Stat(filepath.Join(dir, ".git/hooks/post-checkout"))
+		if info.Mode()&0111 == 0 {
+			t.Fatal("post-checkout hook is not executable")
+		}
 	}
 }
 
@@ -193,7 +245,9 @@ func TestInitRequiresGitRepository(t *testing.T) {
 
 func TestAddDetectsAndAddsAgentRules(t *testing.T) {
 	dir := newRepo(t)
-	os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte("# Project rules\n"), 0644)
+	if err := os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte("# Project rules\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
 	mustTM(t, dir, "", "init")
 	assertContains(t, readFile(t, dir, "CLAUDE.md"), "TRACEMESH CONTEXT PROTOCOL")
 	output := mustTM(t, dir, "", "add", "cursor")
@@ -289,9 +343,8 @@ func TestStartCreatesDescriptionAndActiveTask(t *testing.T) {
 	assertContains(t, output, "Started TM-001", "on branch")
 	task := readFile(t, dir, ".tracemesh/tasks/TM-001.md")
 	assertContains(t, task, "# Implement feature", "**ID:** TM-001", "**Status:** In Progress", "Detailed implementation plan", "## Implementation Log")
-	active, err := os.Readlink(filepath.Join(dir, ".tracemesh/active.md"))
-	if err != nil || filepath.ToSlash(active) != "tasks/TM-001.md" {
-		t.Fatalf("unexpected active task link %q: %v", active, err)
+	if active := activeTarget(t, dir); active != "tasks/TM-001.md" {
+		t.Fatalf("unexpected active task target %q", active)
 	}
 }
 
@@ -310,9 +363,10 @@ func TestStartUsesTitleWhenDescriptionIsBlankAndPreventsSecondActiveTask(t *test
 func TestStatusShowAndNote(t *testing.T) {
 	dir := newRepo(t)
 	mustTM(t, dir, "", "init")
+	branch := currentGitBranch(t, dir)
 	mustTM(t, dir, "", "start", "Track work")
 	status := mustTM(t, dir, "", "status")
-	assertContains(t, status, "Branch: master", "Active task: TM-001 - Track work")
+	assertContains(t, status, "Branch: "+branch, "Active task: TM-001 - Track work")
 	show := mustTM(t, dir, "", "show")
 	assertContains(t, show, "# Track work", "## Implementation Log")
 	mustTM(t, dir, "", "note", "Chose the safer implementation")
@@ -322,13 +376,14 @@ func TestStatusShowAndNote(t *testing.T) {
 func TestListAndHistoryShowActiveAndArchivedTasks(t *testing.T) {
 	dir := newRepo(t)
 	mustTM(t, dir, "", "init")
+	branch := currentGitBranch(t, dir)
 	mustTM(t, dir, "", "start", "First")
 	mustTM(t, dir, "", "finish")
 	mustTM(t, dir, "", "start", "Second")
 	list := mustTM(t, dir, "", "list")
 	assertContains(t, list, "Active tasks:", "TM-002: Second", "Archived tasks:", "TM-001: First")
 	history := mustTM(t, dir, "", "history")
-	assertContains(t, history, "History for branch master", "TM-002: Second")
+	assertContains(t, history, "History for branch "+branch, "TM-002: Second")
 	if strings.Contains(history, "TM-001: First") {
 		t.Fatal("finished task should be removed from the branch's active history")
 	}
@@ -337,12 +392,12 @@ func TestListAndHistoryShowActiveAndArchivedTasks(t *testing.T) {
 func TestSwitchChangesActiveTaskAndWarnsOnOtherBranch(t *testing.T) {
 	dir := newRepo(t)
 	mustTM(t, dir, "", "init")
+	branch := currentGitBranch(t, dir)
 	mustTM(t, dir, "", "start", "Main task")
 	runIn(t, dir, "git", "checkout", "-q", "-b", "feature")
 	output := mustTM(t, dir, "", "switch", "TM-001")
-	assertContains(t, output, "Warning: Task TM-001 is associated with branch master", "Switched active task to TM-001")
-	active, _ := os.Readlink(filepath.Join(dir, ".tracemesh/active.md"))
-	if filepath.ToSlash(active) != "tasks/TM-001.md" {
+	assertContains(t, output, "Warning: Task TM-001 is associated with branch "+branch, "Switched active task to TM-001")
+	if active := activeTarget(t, dir); active != "tasks/TM-001.md" {
 		t.Fatalf("switch selected %q", active)
 	}
 }
@@ -350,17 +405,17 @@ func TestSwitchChangesActiveTaskAndWarnsOnOtherBranch(t *testing.T) {
 func TestSyncSelectsLatestBranchTaskAndClearsWhenNone(t *testing.T) {
 	dir := newRepo(t)
 	mustTM(t, dir, "", "init")
+	branch := currentGitBranch(t, dir)
 	mustTM(t, dir, "", "start", "Main task")
 	runIn(t, dir, "git", "checkout", "-q", "-b", "feature")
 	mustTM(t, dir, "", "sync")
 	if _, err := os.Lstat(filepath.Join(dir, ".tracemesh/active.md")); !os.IsNotExist(err) {
 		t.Fatal("sync should clear active task on an unconfigured branch")
 	}
-	runIn(t, dir, "git", "checkout", "-q", "master")
+	runIn(t, dir, "git", "checkout", "-q", branch)
 	mustTM(t, dir, "", "sync")
-	active, err := os.Readlink(filepath.Join(dir, ".tracemesh/active.md"))
-	if err != nil || filepath.ToSlash(active) != "tasks/TM-001.md" {
-		t.Fatalf("sync selected %q: %v", active, err)
+	if active := activeTarget(t, dir); active != "tasks/TM-001.md" {
+		t.Fatalf("sync selected %q", active)
 	}
 }
 
@@ -382,6 +437,32 @@ func TestPromptPrintsAgentProtocol(t *testing.T) {
 	dir := newRepo(t)
 	output := mustTM(t, dir, "", "tm-prompt")
 	assertContains(t, output, "TRACEMESH CONTEXT PROTOCOL", ".tracemesh/active.md", "Implementation Log")
+}
+
+func TestActivePointerFileFallback(t *testing.T) {
+	dir := newRepo(t)
+	mustTM(t, dir, "", "init")
+	mustTM(t, dir, "", "start", "Fallback task")
+	// Simulate platforms where symlink creation is unavailable (e.g. Windows
+	// without Developer Mode) by replacing the symlink with a plain pointer
+	// file carrying the same relative target.
+	if err := os.Remove(filepath.Join(dir, ".tracemesh", "active.md")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".tracemesh", "active.md"), []byte("tasks/TM-001.md\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	status := mustTM(t, dir, "", "status")
+	assertContains(t, status, "Active task: TM-001 - Fallback task")
+	show := mustTM(t, dir, "", "show")
+	assertContains(t, show, "# Fallback task")
+	mustTM(t, dir, "", "note", "Pointer file note")
+	assertContains(t, readFile(t, dir, ".tracemesh/tasks/TM-001.md"), "Pointer file note")
+	output := mustTM(t, dir, "", "finish")
+	assertContains(t, output, "Finished TM-001 on branch")
+	if _, err := os.Stat(filepath.Join(dir, ".tracemesh/archive/TM-001.md")); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestCommandsRequireValidContext(t *testing.T) {

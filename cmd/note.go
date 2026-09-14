@@ -3,7 +3,6 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -36,19 +35,18 @@ func runNote(text string) error {
 	}
 
 	activePath := filepath.Join(".tracemesh", "active.md")
-	info, err := os.Lstat(activePath)
-	if errors.Is(err, os.ErrNotExist) {
-		return errors.New("Fatal: no active task found; start a task first")
-	}
-	if err != nil {
-		return fmt.Errorf("inspect %s: %w", activePath, err)
-	}
-	if info.Mode()&os.ModeSymlink == 0 {
-		return fmt.Errorf("Fatal: %s is not an OS symlink; text pointer fallback is unsupported", activePath)
+	if _, err := activeTaskID(activePath); err != nil {
+		if errors.Is(err, errNoActiveTask) {
+			return errors.New("Fatal: no active task found; start a task first")
+		}
+		return err
 	}
 
-	contents, err := readTaskFile(activePath)
+	contents, err := readActiveTaskFile(activePath)
 	if err != nil {
+		if errors.Is(err, errNoActiveTask) {
+			return errors.New("Fatal: no active task found; start a task first")
+		}
 		return fmt.Errorf("read %s: %w", activePath, err)
 	}
 	if !strings.Contains(string(contents), "\n## Implementation Log\n") {
@@ -56,18 +54,8 @@ func runNote(text string) error {
 	}
 
 	entry := fmt.Sprintf("- %s: %s\n", time.Now().Format(time.RFC3339), text)
-	if len(contents)+len(entry) > maxTaskFileSize {
-		return fmt.Errorf("Fatal: note would make %s exceed maximum size of %d bytes", activePath, maxTaskFileSize)
-	}
-
-	file, err := os.OpenFile(activePath, os.O_WRONLY|os.O_APPEND, 0o644)
-	if err != nil {
-		return fmt.Errorf("open %s: %w", activePath, err)
-	}
-	defer file.Close()
-
-	if _, err := file.WriteString(entry); err != nil {
-		return fmt.Errorf("append note to %s: %w", activePath, err)
+	if err := appendActiveTaskFile(activePath, entry); err != nil {
+		return err
 	}
 	return nil
 }

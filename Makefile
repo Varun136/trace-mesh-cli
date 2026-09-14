@@ -5,7 +5,7 @@ DATE := $(shell date -u '+%Y-%m-%dT%H:%M:%SZ')
 BUILD_DIR := ./bin
 LDFLAGS := -s -w -X tracemesh/cmd.version=$(VERSION) -X tracemesh/cmd.commit=$(COMMIT) -X tracemesh/cmd.date=$(DATE)
 
-.PHONY: all build build-all test clean install uninstall lint vet fmt tidy release help
+.PHONY: all build build-all test clean install uninstall lint vet fmt tidy release release-check help
 
 all: lint vet test build
 
@@ -47,7 +47,7 @@ clean:
 	rm -rf $(BUILD_DIR)
 	rm -f coverage.out coverage.html
 
-## install: Install the binary to GOPATH/bin
+## install: Install the binary to GOPATH/bin (requires Go; for a no-Go install use ./install.sh)
 install:
 	CGO_ENABLED=0 go install -ldflags="$(LDFLAGS)" ./cmd/tm
 
@@ -79,6 +79,10 @@ tidy:
 ## release: Create a release snapshot (requires goreleaser)
 release:
 	goreleaser release --snapshot --clean
+
+## release-check: Validate the goreleaser configuration (requires goreleaser)
+release-check:
+	goreleaser check
 
 ## help: Show this help message
 help:

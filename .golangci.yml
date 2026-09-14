@@ -1,0 +1,21 @@
+# golangci-lint v2 configuration. Pinned to the default recommended linters so
+# CI results are reproducible regardless of the linter's built-in defaults.
+version: "2"
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+  settings:
+    staticcheck:
+      # ST1005 wants lowercase error strings, but tm intentionally uses
+      # Git-style "Fatal:"/"Error:" prefixes in user-facing CLI output.
+      checks: ["all", "-ST1005"]
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

@@ -1,9 +1,7 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -30,11 +28,8 @@ func runShow() error {
 	if _, err := activeTaskID(activePath); err != nil {
 		return err
 	}
-	contents, err := readTaskFile(activePath)
+	contents, err := readActiveTaskFile(activePath)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return errors.New("Fatal: active task symlink is broken")
-		}
 		return fmt.Errorf("read %s: %w", activePath, err)
 	}
 	fmt.Print(string(contents))

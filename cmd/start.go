@@ -112,21 +112,6 @@ func currentBranch() (string, error) {
 	return branch, nil
 }
 
-func ensureActiveIsAvailable() error {
-	path := filepath.Join(".tracemesh", "active.md")
-	info, err := os.Lstat(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("inspect %s: %w", path, err)
-	}
-	if info.Mode()&os.ModeSymlink != 0 {
-		return errors.New("Fatal: an active task already exists; close or archive it before starting another task")
-	}
-	return errors.New("Fatal: an active task already exists but is not a valid symlink; close or archive it before starting another task")
-}
-
 func nextTaskID() (string, error) {
 	max := 0
 	root := filepath.Join(".tracemesh")
@@ -156,26 +141,14 @@ func nextTaskID() (string, error) {
 	return fmt.Sprintf("TM-%03d", max+1), nil
 }
 
-func writeNewFile(path string, contents []byte) error {
+func writeNewFile(path string, contents []byte) (err error) {
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if err != nil {
 		return fmt.Errorf("create %s: %w", path, err)
 	}
-	defer file.Close()
-	if _, err := file.Write(contents); err != nil {
+	defer closeOnReturn(file, &err, path)
+	if _, err = file.Write(contents); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
-	}
-	return nil
-}
-
-func activateTask(id string) error {
-	activePath := filepath.Join(".tracemesh", "active.md")
-	if err := os.Remove(activePath); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("remove %s: %w", activePath, err)
-	}
-	target := filepath.ToSlash(filepath.Join("tasks", id+".md"))
-	if err := os.Symlink(target, activePath); err != nil {
-		return fmt.Errorf("create %s symlink: %w", activePath, err)
 	}
 	return nil
 }
