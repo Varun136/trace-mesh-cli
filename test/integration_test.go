@@ -30,14 +30,8 @@ func TestMain(m *testing.M) {
 		panic(fmt.Sprintf("build tm: %v\n%s", err, output))
 	}
 	tmBinary = binary.Name()
-	if runtime.GOOS == "windows" && !strings.HasSuffix(tmBinary, ".exe") {
-		if _, err := os.Stat(tmBinary + ".exe"); err == nil {
-			tmBinary += ".exe"
-		}
-	}
 	code := m.Run()
 	_ = os.Remove(tmBinary)
-	_ = os.Remove(strings.TrimSuffix(tmBinary, ".exe"))
 	os.Exit(code)
 }
 
@@ -135,31 +129,14 @@ func readFile(t *testing.T, dir, name string) string {
 	return string(contents)
 }
 
-// activeTarget reads the .tracemesh/active.md pointer regardless of whether it
-// is stored as an OS symlink (Unix, Windows with privileges) or as a plain
-// pointer file (Windows fallback), returning the normalized relative target
-// such as "tasks/TM-001.md".
+// activeTarget reads the .tracemesh/active.md symlink and returns its relative
+// target, such as "tasks/TM-001.md".
 func activeTarget(t *testing.T, dir string) string {
 	t.Helper()
 	activePath := filepath.Join(dir, ".tracemesh", "active.md")
-	info, err := os.Lstat(activePath)
+	target, err := os.Readlink(activePath)
 	if err != nil {
-		t.Fatalf("stat active task pointer: %v", err)
-	}
-	if info.Mode()&os.ModeSymlink != 0 {
-		target, err := os.Readlink(activePath)
-		if err != nil {
-			t.Fatalf("read active task link: %v", err)
-		}
-		return filepath.ToSlash(target)
-	}
-	contents, err := os.ReadFile(activePath)
-	if err != nil {
-		t.Fatalf("read active task pointer: %v", err)
-	}
-	target := strings.TrimSpace(string(contents))
-	if i := strings.IndexAny(target, "\r\n"); i >= 0 {
-		target = strings.TrimSpace(target[:i])
+		t.Fatalf("read active task link: %v", err)
 	}
 	return filepath.ToSlash(target)
 }
@@ -190,11 +167,12 @@ func TestInitCreatesStateAndCheckoutHook(t *testing.T) {
 	assertContains(t, readFile(t, dir, "AGENTS.md"), "TRACEMESH CONTEXT PROTOCOL")
 	hook := readFile(t, dir, ".git/hooks/post-checkout")
 	assertContains(t, hook, "sync", "tracemesh post-checkout hook")
-	if runtime.GOOS != "windows" {
-		info, _ := os.Stat(filepath.Join(dir, ".git/hooks/post-checkout"))
-		if info.Mode()&0111 == 0 {
-			t.Fatal("post-checkout hook is not executable")
-		}
+	info, err := os.Stat(filepath.Join(dir, ".git/hooks/post-checkout"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode()&0111 == 0 {
+		t.Fatal("post-checkout hook is not executable")
 	}
 }
 
@@ -437,32 +415,6 @@ func TestPromptPrintsAgentProtocol(t *testing.T) {
 	dir := newRepo(t)
 	output := mustTM(t, dir, "", "tm-prompt")
 	assertContains(t, output, "TRACEMESH CONTEXT PROTOCOL", ".tracemesh/active.md", "Implementation Log")
-}
-
-func TestActivePointerFileFallback(t *testing.T) {
-	dir := newRepo(t)
-	mustTM(t, dir, "", "init")
-	mustTM(t, dir, "", "start", "Fallback task")
-	// Simulate platforms where symlink creation is unavailable (e.g. Windows
-	// without Developer Mode) by replacing the symlink with a plain pointer
-	// file carrying the same relative target.
-	if err := os.Remove(filepath.Join(dir, ".tracemesh", "active.md")); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, ".tracemesh", "active.md"), []byte("tasks/TM-001.md\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	status := mustTM(t, dir, "", "status")
-	assertContains(t, status, "Active task: TM-001 - Fallback task")
-	show := mustTM(t, dir, "", "show")
-	assertContains(t, show, "# Fallback task")
-	mustTM(t, dir, "", "note", "Pointer file note")
-	assertContains(t, readFile(t, dir, ".tracemesh/tasks/TM-001.md"), "Pointer file note")
-	output := mustTM(t, dir, "", "finish")
-	assertContains(t, output, "Finished TM-001 on branch")
-	if _, err := os.Stat(filepath.Join(dir, ".tracemesh/archive/TM-001.md")); err != nil {
-		t.Fatal(err)
-	}
 }
 
 func TestCommandsRequireValidContext(t *testing.T) {

@@ -15,7 +15,7 @@ build:
 	CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(APP_NAME) ./cmd/tm
 
 ## build-all: Build binaries for all supported platforms
-build-all: build-linux build-darwin build-windows
+build-all: build-linux build-darwin
 
 build-linux:
 	@mkdir -p $(BUILD_DIR)
@@ -27,11 +27,6 @@ build-darwin:
 	@mkdir -p $(BUILD_DIR)
 	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(APP_NAME)_darwin_amd64 ./cmd/tm
 	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(APP_NAME)_darwin_arm64 ./cmd/tm
-
-build-windows:
-	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(APP_NAME)_windows_amd64.exe ./cmd/tm
-	CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(APP_NAME)_windows_arm64.exe ./cmd/tm
 
 ## test: Run all tests
 test:

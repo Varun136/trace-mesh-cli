@@ -57,7 +57,6 @@ detect_platform() {
   case "$os" in
     Linux)  OS="Linux" ;;
     Darwin) OS="Darwin" ;;
-    MINGW*|MSYS*|CYGWIN*|Windows_NT) OS="Windows" ;;
     *) fail "unsupported operating system: $os" ;;
   esac
   arch="$(uname -m)"
@@ -68,13 +67,8 @@ detect_platform() {
     i386|i686) ARCH="i386" ;;
     *) fail "unsupported architecture: $arch" ;;
   esac
-  if [ "$OS" = "Windows" ]; then
-    EXT="zip"
-    BIN_NAME="tm.exe"
-  else
-    EXT="tar.gz"
-    BIN_NAME="tm"
-  fi
+  EXT="tar.gz"
+  BIN_NAME="tm"
   ASSET="${PROJECT}_${OS}_${ARCH}.${EXT}"
 }
 
@@ -128,21 +122,14 @@ verify_checksum() {
 
 extract() {
   local archive="$1" dest="$2"
-  if [ "$EXT" = "zip" ]; then
-    command -v unzip >/dev/null 2>&1 || fail "unzip is required to install the Windows archive"
-    unzip -oq "$archive" -d "$dest"
-  else
-    tar -xzf "$archive" -C "$dest"
-  fi
+  tar -xzf "$archive" -C "$dest"
 }
 
 choose_prefix() {
   if [ -n "$PREFIX" ]; then
     return
   fi
-  if [ "$OS" = "Windows" ]; then
-    PREFIX="$HOME/bin"
-  elif [ -w "/usr/local/bin" ] || [ "$(id -u)" = "0" ]; then
+  if [ -w "/usr/local/bin" ] || [ "$(id -u)" = "0" ]; then
     PREFIX="/usr/local/bin"
   else
     PREFIX="$HOME/.local/bin"

@@ -15,16 +15,12 @@ builds:
     goos:
       - linux
       - darwin
-      - windows
     goarch:
       - amd64
       - arm64
       - arm
     goarm:
       - "7"
-    ignore:
-      - goos: windows
-        goarch: arm
     ldflags:
       - -s -w -X tracemesh/cmd.version={{.Version}} -X tracemesh/cmd.commit={{.ShortCommit}} -X tracemesh/cmd.date={{.Date}}
 
@@ -36,9 +32,6 @@ archives:
       {{- if eq .Arch "amd64" }}x86_64
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
-    format_overrides:
-      - goos: windows
-        formats: ["zip"]
     files:
       - LICENSE
       - README.md

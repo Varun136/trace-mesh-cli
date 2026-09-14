@@ -15,29 +15,19 @@ func activeTargetFor(id string) string {
 }
 
 // activateTask points .tracemesh/active.md at the given task.
-//
-// Symlinks are preferred so the active task stays a live view of the task
-// file. On platforms where symlink creation requires privileges the user may
-// not have (notably Windows without Developer Mode), fall back to a plain
-// pointer file containing the same relative target. All readers accept both
-// forms via activeTaskTarget.
 func activateTask(id string) error {
 	activePath := filepath.Join(".tracemesh", "active.md")
 	if err := os.Remove(activePath); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("remove %s: %w", activePath, err)
 	}
 	target := activeTargetFor(id)
-	if err := os.Symlink(target, activePath); err == nil {
-		return nil
-	}
-	if err := os.WriteFile(activePath, []byte(target+"\n"), 0o644); err != nil {
-		return fmt.Errorf("write %s pointer: %w", activePath, err)
+	if err := os.Symlink(target, activePath); err != nil {
+		return fmt.Errorf("create %s symlink: %w", activePath, err)
 	}
 	return nil
 }
 
-// ensureActiveIsAvailable reports an error when an active task pointer of any
-// supported form already exists.
+// ensureActiveIsAvailable reports an error when an active task already exists.
 func ensureActiveIsAvailable() error {
 	path := filepath.Join(".tracemesh", "active.md")
 	if _, err := os.Lstat(path); errors.Is(err, os.ErrNotExist) {
@@ -48,8 +38,7 @@ func ensureActiveIsAvailable() error {
 	return errors.New("Fatal: an active task already exists; close or archive it before starting another task")
 }
 
-// clearActiveTask removes the active task pointer, whether it is a symlink or
-// a plain pointer file.
+// clearActiveTask removes the active task symlink.
 func clearActiveTask() error {
 	activePath := filepath.Join(".tracemesh", "active.md")
 	if err := os.Remove(activePath); err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -67,8 +56,7 @@ func closeOnReturn(file *os.File, err *error, what string) {
 }
 
 // activeTaskTarget returns the normalized relative target (e.g.
-// "tasks/TM-001.md") recorded in active.md, accepting both symlink and plain
-// pointer-file forms.
+// "tasks/TM-001.md") recorded in active.md.
 func activeTaskTarget(activePath string) (string, error) {
 	info, err := os.Lstat(activePath)
 	if errors.Is(err, os.ErrNotExist) {
@@ -77,26 +65,14 @@ func activeTaskTarget(activePath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("inspect %s: %w", activePath, err)
 	}
-	var raw string
-	if info.Mode()&os.ModeSymlink != 0 {
-		target, err := os.Readlink(activePath)
-		if err != nil {
-			return "", fmt.Errorf("read %s link: %w", activePath, err)
-		}
-		raw = target
-	} else if info.IsDir() {
+	if info.Mode()&os.ModeSymlink == 0 {
 		return "", fmt.Errorf("Fatal: %s does not point to an active task", activePath)
-	} else {
-		contents, err := os.ReadFile(activePath)
-		if err != nil {
-			return "", fmt.Errorf("read %s pointer: %w", activePath, err)
-		}
-		raw = strings.TrimSpace(string(contents))
-		if i := strings.IndexAny(raw, "\r\n"); i >= 0 {
-			raw = strings.TrimSpace(raw[:i])
-		}
 	}
-	target := filepath.ToSlash(filepath.Clean(raw))
+	target, err := os.Readlink(activePath)
+	if err != nil {
+		return "", fmt.Errorf("read %s link: %w", activePath, err)
+	}
+	target = filepath.ToSlash(filepath.Clean(target))
 	rest, ok := strings.CutPrefix(target, "tasks/")
 	if !ok || rest == "" || strings.Contains(rest, "/") {
 		return "", fmt.Errorf("Fatal: %s does not point to an active task", activePath)
@@ -104,8 +80,7 @@ func activeTaskTarget(activePath string) (string, error) {
 	return target, nil
 }
 
-// resolveActiveTaskPath maps an active.md pointer of either form to the
-// filesystem path of the underlying task file.
+// resolveActiveTaskPath maps an active.md symlink to the underlying task file.
 func resolveActiveTaskPath(activePath string) (string, error) {
 	target, err := activeTaskTarget(activePath)
 	if err != nil {
@@ -114,8 +89,7 @@ func resolveActiveTaskPath(activePath string) (string, error) {
 	return filepath.Join(filepath.Dir(activePath), filepath.FromSlash(target)), nil
 }
 
-// activeTaskID extracts the TM-NNN task ID from an active.md pointer of
-// either form.
+// activeTaskID extracts the TM-NNN task ID from an active.md symlink.
 func activeTaskID(activePath string) (string, error) {
 	target, err := activeTaskTarget(activePath)
 	if err != nil {
@@ -132,8 +106,7 @@ func activeTaskID(activePath string) (string, error) {
 	return taskID, nil
 }
 
-// readActiveTaskFile reads the task file currently selected by active.md,
-// following symlinks and pointer files alike.
+// readActiveTaskFile reads the task file currently selected by active.md.
 func readActiveTaskFile(activePath string) ([]byte, error) {
 	taskPath, err := resolveActiveTaskPath(activePath)
 	if err != nil {
@@ -150,7 +123,7 @@ func readActiveTaskFile(activePath string) ([]byte, error) {
 }
 
 // appendActiveTaskFile appends an entry to the task file currently selected by
-// active.md, following symlinks and pointer files alike.
+// active.md.
 func appendActiveTaskFile(activePath string, entry string) (err error) {
 	taskPath, err := resolveActiveTaskPath(activePath)
 	if err != nil {
